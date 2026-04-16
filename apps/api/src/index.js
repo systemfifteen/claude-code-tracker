@@ -8,7 +8,16 @@ const readline = require('readline');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Povoliť len požiadavky z lokálnej siete (192.168.x.x) a localhost
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || origin.startsWith('http://192.168.') || origin.startsWith('http://localhost') || origin.startsWith('http://127.')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+}));
 app.use(express.json());
 
 const CLAUDE_DIR = path.join(os.homedir(), '.claude');
@@ -671,7 +680,8 @@ app.get('/api/sessions', (req, res) => {
 
 app.get('/api/session/:projectDir/:sessionId', (req, res) => {
   const { projectDir, sessionId } = req.params;
-  const file = path.join(PROJECTS_DIR, projectDir, `${sessionId}.jsonl`);
+  const file = path.resolve(PROJECTS_DIR, projectDir, `${sessionId}.jsonl`);
+  if (!file.startsWith(PROJECTS_DIR + path.sep)) return res.status(403).json({ error: 'forbidden' });
   if (!fs.existsSync(file)) return res.status(404).json({ error: 'not found' });
   res.json({ messages: readJsonl(file) });
 });
